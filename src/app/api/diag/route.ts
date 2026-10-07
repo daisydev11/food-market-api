@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readdirSync } from "node:fs";
 
 // TEMPORARY diagnostic for the first deployment. Removed once the API answers.
 export const dynamic = "force-dynamic";
@@ -9,8 +10,17 @@ export async function GET() {
     hasUrl: Boolean(process.env.DATABASE_URL),
     hasUnpooled: Boolean(process.env.DATABASE_URL_UNPOOLED),
     node: process.version,
+    marker: "v3",
+    cwd: process.cwd(),
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7),
   };
+  for (const dir of ["node_modules/.prisma/client", "node_modules/.prisma", "node_modules/@prisma/client"]) {
+    try {
+      out[dir] = readdirSync(`${process.cwd()}/${dir}`).join(" ");
+    } catch (error) {
+      out[dir] = clean(error);
+    }
+  }
   try {
     const { db } = await import("@/lib/db");
     out.tables = await db.$queryRaw`SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1, 2`;
