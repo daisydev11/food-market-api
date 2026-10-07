@@ -5,12 +5,14 @@ import { paginate, parseListQuery, q } from "@/lib/list";
 
 export const GET = route(async (request) => {
   const query = parseListQuery(request, {
-    filters: { cuisine: q.text("cuisine"), city: q.text("city"), minRating: q.number("minRating", 0, 5), isOpen: q.bool("isOpen") },
+    filters: { search: q.text("search"), cuisine: q.text("cuisine"), city: q.text("city"), minRating: q.number("minRating", 0, 5), isOpen: q.bool("isOpen") },
     sortable: ["name", "rating", "deliveryFeeMinor", "createdAt"],
     defaultSort: { field: "name", order: "asc" },
   });
-  const { cuisine, city, minRating, isOpen } = query.filters;
+  const { search, cuisine, city, minRating, isOpen } = query.filters;
   const where: Prisma.RestaurantWhereInput = {
+    // Part of the name, any case. Combines with every other filter (AND).
+    name: search ? { contains: search, mode: "insensitive" } : undefined,
     cuisine: cuisine?.toLowerCase(),
     city: city ? { equals: city, mode: "insensitive" } : undefined,
     rating: minRating === undefined ? undefined : { gte: minRating },
