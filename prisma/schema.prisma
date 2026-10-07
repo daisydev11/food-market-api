@@ -1,0 +1,123 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Identifiers are generated strings with a type prefix (rst_, itm_, cus_,
+// ord_, oit_), never sequential integers. See src/lib/ids.ts.
+
+model Restaurant {
+  id               String   @id
+  name             String
+  cuisine          String
+  city             String
+  address          String
+  // 0.0 to 5.0, one decimal place.
+  rating           Float
+  // Money is always whole minor units (kobo) with the currency beside it.
+  deliveryFeeMinor Int
+  currency         String   @default("NGN")
+  isOpen           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  menuItems MenuItem[]
+  orders    Order[]
+
+  @@index([cuisine])
+  @@index([city])
+  @@index([rating])
+  @@index([name])
+}
+
+model MenuItem {
+  id           String     @id
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String
+  category     String
+  priceMinor   Int
+  currency     String     @default("NGN")
+  isAvailable  Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([restaurantId, category])
+  @@index([priceMinor])
+  @@index([category])
+}
+
+model Customer {
+  id        String   @id
+  name      String
+  city      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([city])
+  @@index([createdAt])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id               String      @id
+  customerId       String
+  customer         Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  restaurantId     String
+  restaurant       Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  status           OrderStatus @default(PENDING)
+  subtotalMinor    Int
+  deliveryFeeMinor Int
+  totalMinor       Int
+  currency         String      @default("NGN")
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([status, createdAt])
+  @@index([restaurantId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([totalMinor])
+}
+
+// The join between orders and menu items. It copies the item's name and
+// price at the time of ordering, so an order stays correct when the menu changes.
+model OrderItem {
+  id             String   @id
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId     String
+  menuItem       MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  name           String
+  unitPriceMinor Int
+  quantity       Int
+
+  @@unique([orderId, menuItemId])
+}
+
+model RateLimit {
+  // "<bucket>:<ip>"
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}
