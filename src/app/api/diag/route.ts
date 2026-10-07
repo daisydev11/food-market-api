@@ -9,6 +9,7 @@ export async function GET() {
     hasUrl: Boolean(process.env.DATABASE_URL),
     hasUnpooled: Boolean(process.env.DATABASE_URL_UNPOOLED),
     node: process.version,
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7),
   };
   try {
     const { db } = await import("@/lib/db");
