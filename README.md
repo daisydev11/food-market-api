@@ -559,14 +559,12 @@ Tests: `npm test`.
 
 ## Deploying (Vercel + Neon)
 
-1. Create a Postgres database at neon.tech and copy its **pooled** connection string.
-2. Import this repository at vercel.com. Add one environment variable, `DATABASE_URL`, with that string. Deploy.
-3. From your machine, create the tables and load the data in the production database:
-   ```bash
-   DATABASE_URL="<the Neon connection string>" npx prisma migrate deploy
-   DATABASE_URL="<the Neon connection string>" npm run seed
-   ```
+1. Import this repository at vercel.com.
+2. In the project's **Storage** tab, create a Neon Postgres database and connect it to the project. Vercel sets `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`) itself, so the connection string is never copied by hand.
+3. Deploy. The build command in `vercel.json` runs `scripts/vercel-build.mjs`, which applies the migrations, runs the seed, then builds. The seed is repeatable, so every later deploy inserts nothing.
 4. Check it from outside: `curl https://YOUR-DEPLOYMENT.vercel.app/api/v1/restaurants?limit=2`
+
+Migrating and seeding inside the build means a deployment cannot go live with an empty database, which is one of the traps this task warns about. The alternative, running both by hand against production from a laptop, works but is a step someone forgets.
 
 ## Evidence
 
