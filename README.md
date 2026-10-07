@@ -84,15 +84,15 @@ Identifiers are generated strings with a type prefix (`rst_`, `itm_`, `cus_`, `o
 
 ## Live API
 
-**Base URL:** `https://YOUR-DEPLOYMENT.vercel.app/api/v1`
+**Base URL:** `https://food-market-api.vercel.app/api/v1`
 
 Paste this into a terminal:
 
 ```bash
-curl "https://YOUR-DEPLOYMENT.vercel.app/api/v1/restaurants?cuisine=pizza&minRating=4.5&sort=rating&order=desc&limit=2"
+curl "https://food-market-api.vercel.app/api/v1/restaurants?cuisine=pizza&minRating=4.5&sort=rating&order=desc&limit=2"
 ```
 
-A small page that consumes the live API: `https://YOUR-DEPLOYMENT.vercel.app/consumer.html`
+A small page that consumes the live API: `https://food-market-api.vercel.app/consumer.html`
 
 No key and no sign-up are needed. Reads are open to anyone.
 
@@ -192,7 +192,7 @@ The numbers live in [`src/config.ts`](src/config.ts).
 | PATCH | `/api/v1/orders/:id` | Change an order's status or notes |
 | DELETE | `/api/v1/orders/:id` | Remove an order |
 
-In the examples, `$API` is `https://YOUR-DEPLOYMENT.vercel.app/api/v1`.
+In the examples, `$API` is `https://food-market-api.vercel.app/api/v1`.
 
 ### GET /restaurants
 
@@ -562,17 +562,23 @@ Tests: `npm test`.
 1. Import this repository at vercel.com.
 2. In the project's **Storage** tab, create a Neon Postgres database and connect it to the project. Vercel sets `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`) itself, so the connection string is never copied by hand.
 3. Deploy. The build command in `vercel.json` runs `scripts/vercel-build.mjs`, which applies the migrations, runs the seed, then builds. The seed is repeatable, so every later deploy inserts nothing.
-4. Check it from outside: `curl https://YOUR-DEPLOYMENT.vercel.app/api/v1/restaurants?limit=2`
+4. Check it from outside: `curl https://food-market-api.vercel.app/api/v1/restaurants?limit=2`
 
 Migrating and seeding inside the build means a deployment cannot go live with an empty database, which is one of the traps this task warns about. The alternative, running both by hand against production from a laptop, works but is a step someone forgets.
 
 ## Evidence
 
-- **Live API URL:** `https://YOUR-DEPLOYMENT.vercel.app/api/v1`
+- **Live API URL:** `https://food-market-api.vercel.app/api/v1`
 - **Seed script:** [`prisma/seed.mjs`](prisma/seed.mjs)
 - **curl against the live URL, paginated response:** `evidence/curl-paginated.png`
 - **The 429 after exceeding the rate limit:** `evidence/rate-limit-429.png`
 - **The consumer showing data from the live API:** `evidence/consumer-live.png`
+
+## What went wrong on the first deployment
+
+- **The build failed with `DATABASE_URL is not set`.** The database client reads its URL when the module loads, and the first deploy had no database attached. Attaching Neon through Vercel's Storage tab fixed it, and the build script now stops with a clear message if the variable is missing.
+- **Every endpoint returned 500 once it did build.** The error was `ENOENT ... query_compiler_bg.wasm`. Prisma's engine-free client reads a `.wasm` file at run time, Next.js could not see that read when deciding which files a serverless function needs, and so the file was left out. It never showed locally because `node_modules` is all there on a laptop. Fixed by naming the file in `outputFileTracingIncludes` in `next.config.ts`.
+- **Migrations and the seed now run inside the Vercel build** (`scripts/vercel-build.mjs`), so the live API cannot be deployed empty.
 
 ## What this does not do
 

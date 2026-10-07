@@ -65,7 +65,7 @@
 // Where the API lives. Served from the deployment, this page calls that same
 // public address. Opened from disk, it calls LIVE_API_URL. Either way it is the
 // public URL, never localhost. Override with ?api=https://...
-const LIVE_API_URL = "https://REPLACE-WITH-YOUR-DEPLOYMENT.vercel.app";
+const LIVE_API_URL = "https://food-market-api.vercel.app";
 const API = (new URLSearchParams(location.search).get("api") || (location.protocol.startsWith("http") ? location.origin : LIVE_API_URL)).replace(/\/$/, "") + "/api/v1";
 
 const PAGE_SIZE = 10;
