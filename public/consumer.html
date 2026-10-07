@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Food Market API consumer</title>
+<style>
+  :root { --bg:#f6f5f1; --surface:#fff; --text:#1b1b18; --muted:#62625b; --border:#d6d4cc; --accent:#1f4fd8; --danger:#b3261e; --danger-bg:#fdecea; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#131312; --surface:#1d1d1b; --text:#f1f0ea; --muted:#a5a49b; --border:#3a3a36; --accent:#8fb0ff; --danger:#ff8a80; --danger-bg:#3a1614; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:28px 16px 56px; }
+  h1 { font-size:1.5rem; margin:0 0 4px; }
+  .muted { color:var(--muted); font-size:.9rem; overflow-wrap:anywhere; }
+  form { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:22px 0 14px; align-items:end; }
+  label { display:grid; gap:4px; font-size:.85rem; font-weight:600; }
+  select { font:inherit; padding:9px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); width:100%; }
+  button { font:inherit; font-weight:600; padding:10px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:var(--bg); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 16px; padding:13px 0; border-bottom:1px solid var(--border); }
+  li strong { overflow-wrap:anywhere; }
+  .panel { padding:18px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+  .error { border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-top:18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Restaurants</h1>
+  <p class="muted">A minimal consumer of the Food Market API. Calling: <span id="base"></span></p>
+
+  <form id="filters">
+    <label>Cuisine
+      <select name="cuisine">
+        <option value="">All cuisines</option>
+        <option>nigerian</option><option>grill</option><option>pizza</option><option>burgers</option><option>chinese</option>
+        <option>indian</option><option>seafood</option><option>shawarma</option><option>vegan</option><option>bakery</option>
+      </select>
+    </label>
+    <label>Minimum rating
+      <select name="minRating">
+        <option value="">Any rating</option><option value="4">4.0 and up</option><option value="4.5">4.5 and up</option><option value="5">5.0 only</option>
+      </select>
+    </label>
+    <label>Sort by
+      <select name="sort">
+        <option value="name:asc">Name, A to Z</option><option value="rating:desc">Rating, highest first</option><option value="deliveryFeeMinor:asc">Delivery fee, lowest first</option>
+      </select>
+    </label>
+  </form>
+
+  <div id="status" class="muted" role="status" aria-live="polite"></div>
+  <div id="results"></div>
+
+  <div class="bar">
+    <button type="button" id="first">Back to first page</button>
+    <button type="button" id="next" class="primary">Next page</button>
+  </div>
+</main>
+
+<script>
+// Where the API lives. Served from the deployment, this page calls that same
+// public address. Opened from disk, it calls LIVE_API_URL. Either way it is the
+// public URL, never localhost. Override with ?api=https://...
+const LIVE_API_URL = "https://REPLACE-WITH-YOUR-DEPLOYMENT.vercel.app";
+const API = (new URLSearchParams(location.search).get("api") || (location.protocol.startsWith("http") ? location.origin : LIVE_API_URL)).replace(/\/$/, "") + "/api/v1";
+
+const PAGE_SIZE = 10;
+const form = document.getElementById("filters");
+const results = document.getElementById("results");
+const statusLine = document.getElementById("status");
+const nextButton = document.getElementById("next");
+const firstButton = document.getElementById("first");
+document.getElementById("base").textContent = API;
+
+let nextCursor = null; // from the last response's meta.nextCursor
+let shown = 0;
+let page = 0;
+
+const money = (minor, currency) => new Intl.NumberFormat("en-NG", { style: "currency", currency, currencyDisplay: "code" }).format(minor / 100);
+
+function el(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text; // textContent, never innerHTML: API data is not trusted markup
+  if (className) node.className = className;
+  return node;
+}
+
+function panel(title, detail, isError) {
+  const box = el("div", undefined, "panel" + (isError ? " error" : ""));
+  box.append(el("strong", title), el("div", detail));
+  if (isError) box.setAttribute("role", "alert");
+  results.replaceChildren(box);
+}
+
+async function load(cursor) {
+  const values = new FormData(form);
+  const [sort, order] = values.get("sort").split(":");
+  const params = new URLSearchParams({ limit: PAGE_SIZE, sort, order });
+  for (const name of ["cuisine", "minRating"]) if (values.get(name)) params.set(name, values.get(name));
+  if (cursor) params.set("cursor", cursor);
+
+  nextButton.disabled = firstButton.disabled = true;
+  statusLine.textContent = "Loading…";
+  let response, body;
+  try {
+    response = await fetch(`${API}/restaurants?${params}`);
+    body = await response.json();
+  } catch {
+    statusLine.textContent = "";
+    firstButton.disabled = false;
+    return panel("Could not reach the API", `No response from ${API}. Check the address and your connection, then try again.`, true);
+  }
+
+  firstButton.disabled = false;
+  if (!response.ok) {
+    // The API always answers errors in one shape, so one branch handles them all.
+    statusLine.textContent = "";
+    const wait = response.headers.get("Retry-After");
+    const detail = response.status === 429 && wait ? `The API is rate limited. Try again in ${wait} seconds.` : (body?.error?.message ?? `HTTP ${response.status}`);
+    return panel(`The API returned an error (${body?.error?.code ?? response.status})`, detail, true);
+  }
+
+  const { data, meta } = body;
+  if (!cursor) { shown = 0; page = 0; }
+  page += 1;
+  shown += data.length;
+  nextCursor = meta.nextCursor;
+
+  if (meta.total === 0) {
+    statusLine.textContent = "";
+    nextButton.disabled = true;
+    return panel("No restaurants match these filters", "Try a different cuisine or a lower minimum rating.", false);
+  }
+
+  const list = el("ul");
+  for (const r of data) {
+    const item = el("li");
+    const left = el("div");
+    left.append(el("strong", r.name), el("div", `${r.cuisine} · ${r.city}${r.isOpen ? "" : " · closed"}`, "muted"));
+    const right = el("div", `★ ${r.rating.toFixed(1)} · delivery ${money(r.deliveryFeeMinor, r.currency)}`, "muted");
+    item.append(left, right);
+    list.append(item);
+  }
+  results.replaceChildren(list);
+  statusLine.textContent = `Page ${page}. Showing ${shown - data.length + 1} to ${shown} of ${meta.total}.`;
+  nextButton.disabled = !meta.hasMore;
+}
+
+form.addEventListener("change", () => load(null)); // a new filter or sort starts again from the first page
+nextButton.addEventListener("click", () => load(nextCursor));
+firstButton.addEventListener("click", () => load(null));
+load(null);
+</script>
+</body>
+</html>

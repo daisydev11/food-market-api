@@ -75,7 +75,7 @@ for (let i = 0; i < 200; i++) {
       id: id("itm"),
       restaurantId: restaurant.id,
       name,
-      description: faker.food.description(),
+      description: `${name}, ${pick(["made fresh to order", "a house favourite", "prepared daily", "served hot", "our best seller", "cooked the traditional way"])}.`,
       category,
       priceMinor: naira(...PRICE[category]),
       currency: "NGN",
