@@ -198,6 +198,7 @@ In the examples, `$API` is `https://food-market-api.vercel.app/api/v1`.
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
+| `search` | string | none | Part of the restaurant name, any case, e.g. `buka` |
 | `cuisine` | string | none | `nigerian`, `grill`, `pizza`, `burgers`, `chinese`, `indian`, `seafood`, `shawarma`, `vegan`, `bakery` |
 | `city` | string | none | Case-insensitive exact match, e.g. `Lagos` |
 | `minRating` | number 0 to 5 | none | Rating at or above this |

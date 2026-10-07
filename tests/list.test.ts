@@ -5,7 +5,7 @@ import { isId, newId } from "@/lib/ids";
 import { parseListQuery, q } from "@/lib/list";
 import { NEXT_STATUS } from "@/lib/resources";
 
-const options = { filters: { cuisine: q.text("cuisine"), minRating: q.number("minRating", 0, 5) }, sortable: ["name", "rating"], defaultSort: { field: "name", order: "asc" as const } };
+const options = { filters: { search: q.text("search"), cuisine: q.text("cuisine"), minRating: q.number("minRating", 0, 5) }, sortable: ["name", "rating"], defaultSort: { field: "name", order: "asc" as const } };
 const parse = (query: string) => parseListQuery(new Request(`http://x/api/v1/restaurants${query}`), options);
 const failure = (query: string) => {
   try {
@@ -17,6 +17,14 @@ const failure = (query: string) => {
 };
 
 describe("list query contract", () => {
+  it("accepts a name search alongside other filters", () => {
+    expect(parse("?search=buka&cuisine=nigerian").filters).toEqual({ search: "buka", cuisine: "nigerian" });
+  });
+
+  it("refuses an empty search rather than treating it as no filter", () => {
+    expect(failure("?search=").status).toBe(400);
+  });
+
   it("uses the configured defaults when nothing is supplied", () => {
     expect(parse("")).toMatchObject({ limit: config.pagination.defaultLimit, sort: "name", order: "asc", offset: undefined, cursor: undefined });
   });
