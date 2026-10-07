@@ -570,9 +570,17 @@ Migrating and seeding inside the build means a deployment cannot go live with an
 
 - **Live API URL:** `https://food-market-api.vercel.app/api/v1`
 - **Seed script:** [`prisma/seed.mjs`](prisma/seed.mjs)
-- **curl against the live URL, paginated response:** `evidence/curl-paginated.png`
-- **The 429 after exceeding the rate limit:** `evidence/rate-limit-429.png`
-- **The consumer showing data from the live API:** `evidence/consumer-live.png`
+**curl against the live URL, paginated response** (`meta.total` 20, `limit` 2, `hasMore` true)
+
+![curl against the live API](evidence/curl-paginated.png)
+
+**The 429 after exceeding the rate limit** (request 102 in one minute: `HTTP/2 429`, `retry-after: 3`, `x-ratelimit-remaining: 0`)
+
+![429 response](evidence/rate-limit-429.png)
+
+**The consumer showing data from the live API** (filtered to one cuisine, on page 2)
+
+![Consumer page](evidence/consumer-live.png)
 
 ## What went wrong on the first deployment
 
